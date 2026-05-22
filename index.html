@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="Sudoku Duel — A competitive 2-player Sudoku game. Race against your opponent to solve the same puzzle and earn the most points!">
+  <meta name="theme-color" content="#1a1a2e">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Sudoku Duel — 2-Player Competitive Sudoku">
+  <meta property="og:description" content="Challenge a friend to solve the same Sudoku puzzle simultaneously. Earn points for correct placements and compete for the highest score!">
+  <meta property="og:type" content="website">
+
+  <title>Sudoku Duel — 2-Player Competitive Sudoku</title>
+
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Floating Background Orbs for Premium Aesthetics -->
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+
+  <!-- ═══════════════════════════════════════════
+       LOBBY SCREEN
+       ═══════════════════════════════════════════ -->
+  <div id="lobby-screen" class="screen active">
+    <div class="lobby-container glass-card">
+
+      <!-- Animated background glow -->
+      <div class="lobby-glow"></div>
+
+      <!-- Title -->
+      <h1 class="lobby-title">SUDOKU<span class="title-accent">DUEL</span></h1>
+      <p class="lobby-subtitle">Competitive 2-Player Sudoku — Race. Score. Win.</p>
+
+      <!-- Main Lobby (Create / Join) -->
+      <div id="lobby-main" class="lobby-section">
+
+        <!-- Player Name -->
+        <div class="form-group">
+          <label for="player-name-input" class="form-label">Your Name</label>
+          <input type="text" id="player-name-input" class="form-input" placeholder="Enter your name" maxlength="20" autocomplete="off">
+        </div>
+
+        <!-- Difficulty Selector -->
+        <div class="form-group">
+          <label class="form-label">Difficulty</label>
+          <div class="difficulty-selector">
+            <button class="diff-option" data-difficulty="easy">
+              <span class="diff-icon">🟢</span>
+              <span class="diff-label">Easy</span>
+              <span class="diff-desc">38 clues</span>
+            </button>
+            <button class="diff-option active" data-difficulty="medium">
+              <span class="diff-icon">🟡</span>
+              <span class="diff-label">Medium</span>
+              <span class="diff-desc">30 clues</span>
+            </button>
+            <button class="diff-option" data-difficulty="hard">
+              <span class="diff-icon">🔴</span>
+              <span class="diff-label">Hard</span>
+              <span class="diff-desc">24 clues</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Time Streak Multiplier Toggle -->
+        <div class="form-group toggle-group">
+          <label class="form-label toggle-label" for="time-bonus-toggle">
+            <span class="toggle-title">🔥 Streak Multiplier</span>
+            <span class="toggle-desc">Solves within 10s multiply score (2x, 3x, etc.)!</span>
+          </label>
+          <div class="switch-wrapper">
+            <input type="checkbox" id="time-bonus-toggle" class="switch-input" checked>
+            <label for="time-bonus-toggle" class="switch-slider"></label>
+          </div>
+        </div>
+
+        <!-- Create Game Button -->
+        <button id="btn-create" class="btn btn-primary">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          Create Game
+        </button>
+
+        <div class="lobby-divider">
+          <span>or</span>
+        </div>
+
+        <!-- Join Game Button -->
+        <button id="btn-join" class="btn btn-join">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          Join Game
+        </button>
+
+        <!-- Sync Server Settings Widget -->
+        <div class="server-status-widget">
+          <div class="status-header" id="btn-toggle-server-settings">
+            <span class="status-dot pulsing red" id="server-status-dot"></span>
+            <span class="status-text" id="server-status-text">Server Connection Checking...</span>
+            <span class="status-toggle-icon">⚙️</span>
+          </div>
+          <div class="status-details hidden" id="server-settings-details">
+            <div class="form-group">
+              <label for="server-url-input" class="form-label">Sync Server URL</label>
+              <div class="server-input-wrapper">
+                <input type="text" id="server-url-input" class="form-input" placeholder="http://192.168.x.x:8080" autocomplete="off" spellcheck="false">
+                <button id="btn-save-server-url" class="btn btn-secondary btn-small">Connect</button>
+              </div>
+              <p class="server-hint">Enter your host machine's IP address &amp; port (e.g., <code id="server-hint-ip">http://192.168.1.71:8080</code>) if playing on separate devices.</p>
+            </div>
+
+            <!-- Connection Diagnostics & Troubleshooting -->
+            <div class="diagnostics-panel">
+              <h4 class="diagnostics-title">🔍 Connection Troubleshooter</h4>
+              <ol class="diagnostics-list">
+                <li>
+                  <strong>Step 1: Test with your phone's browser</strong><br>
+                  Open your phone's web browser and type this exact URL:
+                  <code id="diag-ping-url">http://192.168.1.71:8080/api/ping</code>
+                  <div class="diag-test-result">
+                    <span class="bullet">•</span> If it displays a JSON response (like <code>{"success":true,...}</code>), the link is open! Close the browser and scan the QR code.<br>
+                    <span class="bullet">•</span> If it spins forever or says "Site unreachable", then the network path is blocked by a Firewall or Router. Proceed to Step 2.
+                  </div>
+                </li>
+                <li>
+                  <strong>Step 2: Check Windows Firewall Override Block</strong><br>
+                  Sometimes Windows has a specific "Block" rule for <code>node.exe</code> from previous prompts that overrides the port rule.
+                  To check: Search Windows for <strong>"Allow an app through Windows Firewall"</strong>, click "Change settings", scroll down to <strong>Node.js JavaScript Runtime</strong>, and ensure both <strong>Private</strong> and <strong>Public</strong> boxes are checked.
+                </li>
+                <li>
+                  <strong>Step 3: Enable Windows Mobile Hotspot (100% Success!)</strong><br>
+                  Many routers block Wi-Fi devices from talking to each other (AP Isolation). You can bypass this completely:
+                  <div class="diag-hotspot-steps">
+                    1. In Windows, search and open <strong>"Mobile Hotspot settings"</strong> and turn it ON.<br>
+                    2. Connect your phone/tablet to this new Hotspot Wi-Fi network.<br>
+                    3. Refresh this page to update the QR code and scan it to play instantly!
+                  </div>
+                </li>
+              </ol>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scoring Info -->
+        <div class="scoring-info">
+          <h3 class="scoring-title">📊 How Scoring Works</h3>
+          <div class="scoring-grid">
+            <div class="score-item positive">
+              <span class="score-value">+10</span>
+              <span class="score-desc">Correct number</span>
+            </div>
+            <div class="score-item negative">
+              <span class="score-value">-5</span>
+              <span class="score-desc">Wrong number</span>
+            </div>
+            <div class="score-item bonus">
+              <span class="score-value">+50</span>
+              <span class="score-desc">Complete row/col/box</span>
+            </div>
+            <div class="score-item bonus">
+              <span class="score-value">+200</span>
+              <span class="score-desc">Fill last cell</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Join Game Form -->
+      <div id="lobby-join" class="lobby-section hidden">
+        <h2 class="section-title">Join a Game</h2>
+
+        <div class="form-group">
+          <label for="join-name-input" class="form-label">Your Name</label>
+          <input type="text" id="join-name-input" class="form-input" placeholder="Enter your name" maxlength="20" autocomplete="off">
+        </div>
+
+        <div class="form-group">
+          <label for="join-code-input" class="form-label">Room Code</label>
+          <input type="text" id="join-code-input" class="form-input room-code-input" placeholder="XXXXXX" maxlength="6" autocomplete="off" spellcheck="false">
+        </div>
+
+        <button id="btn-join-submit" class="btn btn-join">
+          Join Game
+        </button>
+
+        <button class="btn btn-secondary btn-back">
+          ← Back
+        </button>
+      </div>
+
+      <!-- Waiting for Player 2 -->
+      <div id="lobby-waiting" class="lobby-section hidden">
+        <h2 class="section-title">Waiting for Opponent...</h2>
+        <p class="waiting-text">Share this room code with your opponent:</p>
+
+        <div class="room-code-wrapper">
+          <div id="room-code-display" class="room-code-display">------</div>
+          <button id="btn-copy-code" class="btn btn-secondary btn-small" title="Copy code">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            Copy
+          </button>
+        </div>
+
+        <!-- Local Network Connection & QR Code Section -->
+        <div class="network-discovery-box hidden" id="network-discovery-box">
+          <div class="discovery-header">
+            <h3>📱 Connect Partner Device</h3>
+          </div>
+          <div class="discovery-body">
+            <div class="qr-wrapper">
+              <div class="qr-placeholder" id="qr-placeholder">Generating QR...</div>
+              <img id="qr-code-img" class="qr-code-img hidden" src="" alt="Scan to join game">
+            </div>
+            <div class="discovery-instructions">
+              <p class="instruction-lead">Scan this QR code with a phone/tablet or open one of these Wi-Fi URLs:</p>
+              <ul class="discovery-urls" id="discovery-urls-list">
+                <!-- Dynamically populated -->
+              </ul>
+              <button id="btn-copy-join-link" class="btn btn-secondary btn-small">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+                Copy Direct Join Link
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="waiting-spinner">
+          <div class="spinner"></div>
+          <p>Listening for opponent to join...</p>
+        </div>
+
+        <div class="waiting-divider">
+          <span>or play locally</span>
+        </div>
+
+        <button id="btn-start-solo" class="btn btn-secondary">
+          Start 2-Player (Same Device)
+        </button>
+
+        <button class="btn btn-secondary btn-back">
+          ← Cancel
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       GAME SCREEN
+       ═══════════════════════════════════════════ -->
+  <div id="game-screen" class="screen">
+    <div class="game-container">
+
+      <!-- Game Header: Player Cards + Timer -->
+      <div class="game-header">
+
+        <!-- Self (Your) Card -->
+        <div id="self-card" class="player-card self">
+          <div class="player-card-inner">
+            <div class="player-avatar">?</div>
+            <div class="player-info">
+              <div class="player-name-row">
+                <span class="player-name">You</span>
+                <span class="player-badge self-badge">YOU</span>
+              </div>
+              <div class="player-score-row">
+                <span class="player-score">0</span>
+                <span class="score-label">pts</span>
+                <span class="player-streak hidden">🔥 x1</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill"></div>
+                <span class="progress-text">0%</span>
+              </div>
+            </div>
+          </div>
+          <div class="player-active-dot"></div>
+        </div>
+
+        <!-- Timer -->
+        <div class="timer-container">
+          <div class="timer-icon">⏱️</div>
+          <div id="game-timer" class="game-timer">00:00</div>
+        </div>
+
+        <!-- Opponent Card -->
+        <div id="opponent-card" class="player-card opponent waiting">
+          <div class="player-card-inner">
+            <div class="player-avatar">?</div>
+            <div class="player-info">
+              <div class="player-name-row">
+                <span class="player-name">Waiting...</span>
+                <span class="player-badge opp-badge">OPP</span>
+              </div>
+              <div class="player-score-row">
+                <span class="player-score">0</span>
+                <span class="score-label">pts</span>
+                <span class="player-streak hidden">🔥 x1</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill"></div>
+                <span class="progress-text">0%</span>
+              </div>
+            </div>
+          </div>
+          <div class="player-active-dot"></div>
+        </div>
+      </div>
+
+      <!-- Turn Banner for local same-device play -->
+      <div id="local-turn-banner" class="local-turn-banner hidden">
+        <span>🎮</span> Tap card to switch turns &amp; pass device
+      </div>
+
+      <!-- Sudoku Board -->
+      <div class="board-wrapper">
+        <div id="sudoku-board" class="sudoku-board"></div>
+      </div>
+
+      <!-- Number Pad -->
+      <div id="number-pad" class="number-pad"></div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       RESULTS SCREEN
+       ═══════════════════════════════════════════ -->
+  <div id="results-screen" class="screen">
+    <div class="results-container glass-card">
+
+      <!-- Result Title -->
+      <div class="results-header">
+        <div class="results-crown">👑</div>
+        <h1 id="results-title" class="results-title">Game Over</h1>
+        <p id="results-subtitle" class="results-subtitle"></p>
+      </div>
+
+      <!-- Score Comparison -->
+      <div class="score-comparison">
+        <div class="score-card self">
+          <div class="score-card-name" id="result-my-name">You</div>
+          <div class="score-card-score" id="result-my-score">0</div>
+          <div class="score-card-label">points</div>
+        </div>
+        <div class="score-vs">VS</div>
+        <div class="score-card opponent">
+          <div class="score-card-name" id="result-opp-name">Opponent</div>
+          <div class="score-card-score" id="result-opp-score">0</div>
+          <div class="score-card-label">points</div>
+        </div>
+      </div>
+
+      <!-- Detailed Breakdown -->
+      <div class="breakdown-table">
+        <h3 class="breakdown-title">📊 Score Breakdown</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Stat</th>
+              <th>You</th>
+              <th>Opponent</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Correct Placements</td>
+              <td id="result-my-correct">0</td>
+              <td id="result-opp-correct">0</td>
+            </tr>
+            <tr>
+              <td>Incorrect Placements</td>
+              <td id="result-my-incorrect">0</td>
+              <td id="result-opp-incorrect">0</td>
+            </tr>
+            <tr>
+              <td>Rows Completed</td>
+              <td id="result-my-rows">0</td>
+              <td id="result-opp-rows">0</td>
+            </tr>
+            <tr>
+              <td>Columns Completed</td>
+              <td id="result-my-cols">0</td>
+              <td id="result-opp-cols">0</td>
+            </tr>
+            <tr>
+              <td>Boxes Completed</td>
+              <td id="result-my-boxes">0</td>
+              <td id="result-opp-boxes">0</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Game Time -->
+      <div class="result-time">
+        <span class="time-label">Total Time:</span>
+        <span id="result-time" class="time-value">00:00</span>
+      </div>
+
+      <!-- Actions -->
+      <div class="result-actions">
+        <button id="btn-rematch" class="btn btn-primary">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+          Play Again
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       SCRIPTS
+       ═══════════════════════════════════════════ -->
+
+  <!-- Firebase SDK (optional — for multiplayer) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <!-- App Modules (order matters!) -->
+  <script src="js/sudoku.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/effects.js"></script>
+  <script src="js/multiplayer.js"></script>
+  <script src="js/ui.js"></script>
+
+</body>
+</html>
