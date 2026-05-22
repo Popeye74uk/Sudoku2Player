@@ -38,7 +38,7 @@
    * @param {boolean} [options.timeBonusEnabled] - Optional time streak multiplier toggle
    * @returns {object} Fresh game state
    */
-  function createGameState({ gameId, puzzle, solution, difficulty, player1Name, timeBonusEnabled }) {
+  function createGameState({ gameId, puzzle, solution, difficulty, player1Name, timeBonusEnabled, bo3Enabled, bo3Round, bo3Scores }) {
     const engine = window.SudokuEngine;
     return {
       gameId: gameId,
@@ -46,6 +46,9 @@
       solution: engine.deepCopy(solution),
       difficulty: difficulty,
       timeBonusEnabled: !!timeBonusEnabled,
+      bo3Enabled: !!bo3Enabled,
+      bo3Round: bo3Round || 1,
+      bo3Scores: bo3Scores || { player1: 0, player2: 0 },
       players: {
         player1: createPlayerState(player1Name, puzzle),
         player2: null
@@ -266,7 +269,21 @@
     if (isBoardFullyScored(gameState)) {
       gameState.status = GAME_STATUS.FINISHED;
       gameState.endTime = Date.now();
-      gameState.winner = determineWinner(gameState);
+      const winner = determineWinner(gameState);
+      gameState.winner = winner;
+
+      // Tally Bo3 round win
+      if (gameState.bo3Enabled) {
+        if (!gameState.bo3Scores) {
+          gameState.bo3Scores = { player1: 0, player2: 0 };
+        }
+        if (winner === 'player1') {
+          gameState.bo3Scores.player1++;
+        } else if (winner === 'player2') {
+          gameState.bo3Scores.player2++;
+        }
+      }
+
       result.gameFinished = true;
     }
 
@@ -459,6 +476,9 @@
       solution: gameState.solution,
       difficulty: gameState.difficulty,
       timeBonusEnabled: !!gameState.timeBonusEnabled,
+      bo3Enabled: !!gameState.bo3Enabled,
+      bo3Round: gameState.bo3Round || 1,
+      bo3Scores: gameState.bo3Scores || { player1: 0, player2: 0 },
       startTime: gameState.startTime,
       endTime: gameState.endTime,
       status: gameState.status,
@@ -505,6 +525,9 @@
       solution: data.solution,
       difficulty: data.difficulty,
       timeBonusEnabled: !!data.timeBonusEnabled,
+      bo3Enabled: !!data.bo3Enabled,
+      bo3Round: data.bo3Round || 1,
+      bo3Scores: data.bo3Scores || { player1: 0, player2: 0 },
       startTime: data.startTime,
       endTime: data.endTime,
       status: data.status,
@@ -548,6 +571,7 @@
     SCORES,
     GAME_STATUS,
     createGameState,
+    createPlayerState,
     addPlayer2,
     processMove,
     toggleNote,

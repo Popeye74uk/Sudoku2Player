@@ -154,6 +154,7 @@
       const puzzle = engine.createPuzzle(solution, difficulty);
       const roomCode = window.GameManager.generateRoomCode();
       const timeBonusEnabled = document.getElementById('time-bonus-toggle')?.checked ?? true;
+      const bo3Enabled = document.getElementById('bo3-toggle')?.checked ?? false;
 
       // Create game state
       gameState = window.GameManager.createGameState({
@@ -162,7 +163,8 @@
         solution: solution,
         difficulty: difficulty,
         player1Name: playerName,
-        timeBonusEnabled: timeBonusEnabled
+        timeBonusEnabled: timeBonusEnabled,
+        bo3Enabled: bo3Enabled
       });
       myPlayerId = 'player1';
       window.Multiplayer.setPlayerId(myPlayerId);
@@ -946,6 +948,46 @@
     const unsub1 = window.Multiplayer.onGameStateUpdate(gameState.gameId, (data) => {
       if (!data) return;
 
+      // Check if host transitioned to next round in Best of 3 mode
+      if (data.bo3Enabled && data.bo3Round > gameState.bo3Round && data.status === window.GameManager.GAME_STATUS.PLAYING) {
+        // Transition client state to new round
+        gameState.puzzle = data.puzzle;
+        gameState.solution = data.solution;
+        gameState.bo3Round = data.bo3Round;
+        gameState.bo3Scores = data.bo3Scores;
+        gameState.status = window.GameManager.GAME_STATUS.PLAYING;
+        gameState.startTime = data.startTime;
+        gameState.endTime = null;
+        gameState.winner = null;
+        gameState.scoredCells = data.scoredCells || Array(9).fill(null).map(() => Array(9).fill(false));
+
+        // Reset local players
+        for (const pid of ['player1', 'player2']) {
+          const remote = data.players[pid];
+          const local = gameState.players[pid];
+          if (local && remote) {
+            local.score = remote.score || 0;
+            local.grid = remote.grid || local.grid;
+            local.cellsPlaced = remote.cellsPlaced || 0;
+            local.correctPlacements = remote.correctPlacements || 0;
+            local.incorrectPlacements = remote.incorrectPlacements || 0;
+            local.completedRows = new Set(remote.completedRows || []);
+            local.completedCols = new Set(remote.completedCols || []);
+            local.completedBoxes = new Set(remote.completedBoxes || []);
+            local.streakMultiplier = remote.streakMultiplier || 1;
+            local.lastCorrectTime = remote.lastCorrectTime || null;
+            if (pid === myPlayerId) {
+              local.notes = Array(9).fill(null).map(() => Array(9).fill(null).map(() => new Set()));
+            }
+          }
+        }
+
+        selectedCell = null;
+        notesMode = false;
+        startGame();
+        return;
+      }
+
       // Update opponent data
       if (data.players && data.players[oppId]) {
         const oppRemote = data.players[oppId];
@@ -1069,6 +1111,7 @@
    * Generates and renders final performance scorecards on the results screen.
    * Determines victory or defeat, triggers appropriate canvas confetti or sorrow rain effects,
    * lists correct/incorrect cells placed, lines/boxes completed, and registers rematch hooks.
+   * Supports Best of 3 multi-round tournament scorecards and dynamic actions.
    *
    * @returns {void}
    */
@@ -1082,37 +1125,96 @@
     // Title
     const titleEl = document.getElementById('results-title');
     const subtitleEl = document.getElementById('results-subtitle');
+    const resultsContainer = document.getElementById('results-screen');
 
-    let amIWinner;
-    if (winner === 'tie') {
-      amIWinner = 'tie';
-      titleEl.textContent = "IT'S A TIE!";
-      titleEl.className = 'results-title tie';
-      subtitleEl.textContent = 'Both players scored equally. Impressive!';
-    } else if (isLocalMode) {
-      const winnerName = gameState.players[winner].name;
-      amIWinner = 'win'; // Trigger confetti & congrats style
-      titleEl.textContent = `${winnerName.toUpperCase()} WINS! 🏆`;
-      titleEl.className = 'results-title win';
-      subtitleEl.textContent = `Congratulations, ${winnerName}!`;
-      const resultsContainer = document.getElementById('results-screen');
-      Effects.launchConfetti(resultsContainer, 5000);
-    } else if (winner === myPlayerId) {
-      amIWinner = 'win';
-      titleEl.textContent = 'YOU WIN! 🏆';
-      titleEl.className = 'results-title win';
-      subtitleEl.textContent = 'Congratulations, champion!';
-      // Confetti!
-      const resultsContainer = document.getElementById('results-screen');
-      Effects.launchConfetti(resultsContainer, 5000);
+    let amIWinner = 'tie';
+
+    if (gameState.bo3Enabled) {
+      gameState.bo3Scores = gameState.bo3Scores || { player1: 0, player2: 0 };
+      const s1 = gameState.bo3Scores.player1;
+      const s2 = gameState.bo3Scores.player2;
+
+      // Check if series is overall complete (either player has 2 wins)
+      const isSeriesComplete = s1 >= 2 || s2 >= 2;
+
+      if (isSeriesComplete) {
+        const seriesWinner = s1 >= 2 ? 'player1' : 'player2';
+        const winnerName = gameState.players[seriesWinner].name;
+
+        if (isLocalMode) {
+          amIWinner = 'win';
+          titleEl.textContent = `${winnerName.toUpperCase()} IS THE CHAMPION! 🏆`;
+          titleEl.className = 'results-title win';
+          subtitleEl.textContent = `Series Ended: ${gameState.players.player1.name} [${s1}] - [${s2}] ${gameState.players.player2.name}`;
+          Effects.launchConfetti(resultsContainer, 5000);
+        } else if (seriesWinner === myPlayerId) {
+          amIWinner = 'win';
+          titleEl.textContent = 'YOU ARE THE SERIES CHAMPION! 🏆';
+          titleEl.className = 'results-title win';
+          subtitleEl.textContent = `Final Score: ${myData.name} [${s1}] - [${s2}] ${oppData ? oppData.name : 'Opponent'}`;
+          Effects.launchConfetti(resultsContainer, 5000);
+        } else {
+          amIWinner = 'lose';
+          titleEl.textContent = 'YOU LOST THE SERIES';
+          titleEl.className = 'results-title lose';
+          subtitleEl.textContent = `Final Score: ${myData.name} [${s1}] - [${s2}] ${oppData ? oppData.name : 'Opponent'}`;
+          Effects.launchSorrowRain(resultsContainer, 5000);
+        }
+      } else {
+        // Round complete, series is continuing
+        if (winner === 'tie') {
+          amIWinner = 'tie';
+          titleEl.textContent = `ROUND ${gameState.bo3Round} IS A TIE!`;
+          titleEl.className = 'results-title tie';
+          subtitleEl.textContent = `Series Score: ${gameState.players.player1.name} [${s1}] - [${s2}] ${oppData ? oppData.name : 'Opponent'}`;
+        } else if (isLocalMode) {
+          const roundWinnerName = gameState.players[winner].name;
+          amIWinner = 'win';
+          titleEl.textContent = `${roundWinnerName.toUpperCase()} WINS ROUND ${gameState.bo3Round}! 🏆`;
+          titleEl.className = 'results-title win';
+          subtitleEl.textContent = `Series Score: ${gameState.players.player1.name} [${s1}] - [${s2}] ${gameState.players.player2.name}`;
+          Effects.launchConfetti(resultsContainer, 3000);
+        } else if (winner === myPlayerId) {
+          amIWinner = 'win';
+          titleEl.textContent = `YOU WON ROUND ${gameState.bo3Round}! 🏆`;
+          titleEl.className = 'results-title win';
+          subtitleEl.textContent = `Series Score: ${myData.name} [${s1}] - [${s2}] ${oppData ? oppData.name : 'Opponent'}`;
+          Effects.launchConfetti(resultsContainer, 3000);
+        } else {
+          amIWinner = 'lose';
+          titleEl.textContent = `OPPONENT WON ROUND ${gameState.bo3Round}`;
+          titleEl.className = 'results-title lose';
+          subtitleEl.textContent = `Series Score: ${myData.name} [${s1}] - [${s2}] ${oppData ? oppData.name : 'Opponent'}`;
+          Effects.launchSorrowRain(resultsContainer, 3000);
+        }
+      }
     } else {
-      amIWinner = 'lose';
-      titleEl.textContent = 'YOU LOSE';
-      titleEl.className = 'results-title lose';
-      subtitleEl.textContent = 'Better luck next time!';
-      // Rain!
-      const resultsContainer = document.getElementById('results-screen');
-      Effects.launchSorrowRain(resultsContainer, 5000);
+      // Standard single match (non-Bo3)
+      if (winner === 'tie') {
+        amIWinner = 'tie';
+        titleEl.textContent = "IT'S A TIE!";
+        titleEl.className = 'results-title tie';
+        subtitleEl.textContent = 'Both players scored equally. Impressive!';
+      } else if (isLocalMode) {
+        const winnerName = gameState.players[winner].name;
+        amIWinner = 'win';
+        titleEl.textContent = `${winnerName.toUpperCase()} WINS! 🏆`;
+        titleEl.className = 'results-title win';
+        subtitleEl.textContent = `Congratulations, ${winnerName}!`;
+        Effects.launchConfetti(resultsContainer, 5000);
+      } else if (winner === myPlayerId) {
+        amIWinner = 'win';
+        titleEl.textContent = 'YOU WIN! 🏆';
+        titleEl.className = 'results-title win';
+        subtitleEl.textContent = 'Congratulations, champion!';
+        Effects.launchConfetti(resultsContainer, 5000);
+      } else {
+        amIWinner = 'lose';
+        titleEl.textContent = 'YOU LOSE';
+        titleEl.className = 'results-title lose';
+        subtitleEl.textContent = 'Better luck next time!';
+        Effects.launchSorrowRain(resultsContainer, 5000);
+      }
     }
 
     // Scores
@@ -1140,16 +1242,103 @@
     const elapsed = window.GameManager.getElapsedSeconds(gameState);
     document.getElementById('result-time').textContent = window.GameManager.formatTime(elapsed);
 
-    // Rematch button
-    const rematchBtn = document.getElementById('btn-rematch');
-    rematchBtn.addEventListener('click', () => {
-      // Reset everything and go back to lobby
-      cleanup();
-      showScreen('lobby-screen');
-      document.getElementById('lobby-main').classList.remove('hidden');
-      document.getElementById('lobby-join').classList.add('hidden');
-      document.getElementById('lobby-waiting').classList.add('hidden');
-    });
+    // Dynamic Actions Builder
+    const actionsContainer = document.querySelector('.result-actions');
+    if (actionsContainer) {
+      actionsContainer.innerHTML = '';
+
+      const s1 = gameState.bo3Scores ? gameState.bo3Scores.player1 : 0;
+      const s2 = gameState.bo3Scores ? gameState.bo3Scores.player2 : 0;
+      const isSeriesComplete = s1 >= 2 || s2 >= 2;
+
+      if (gameState.bo3Enabled && !isSeriesComplete) {
+        // Series is continuing - show Next Round triggers
+        if (isLocalMode || myPlayerId === 'player1') {
+          // Host or local mode: show Start Round button
+          const nextBtn = document.createElement('button');
+          nextBtn.className = 'btn btn-primary';
+          nextBtn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> Start Round ${gameState.bo3Round + 1}`;
+          nextBtn.addEventListener('click', () => startNextRound());
+          actionsContainer.appendChild(nextBtn);
+        } else {
+          // Client mode: show waiting button state
+          const waitBtn = document.createElement('button');
+          waitBtn.className = 'btn btn-primary';
+          waitBtn.disabled = true;
+          waitBtn.style.opacity = '0.7';
+          waitBtn.style.cursor = 'not-allowed';
+          waitBtn.innerHTML = `⌛ Waiting for host to start Round ${gameState.bo3Round + 1}...`;
+          actionsContainer.appendChild(waitBtn);
+        }
+      } else {
+        // Standard Play Again / Go back to Lobby
+        const rematchBtn = document.createElement('button');
+        rematchBtn.className = 'btn btn-primary';
+        rematchBtn.id = 'btn-rematch';
+        rematchBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> Play Again';
+        rematchBtn.addEventListener('click', () => {
+          cleanup();
+          showScreen('lobby-screen');
+          document.getElementById('lobby-main').classList.remove('hidden');
+          document.getElementById('lobby-join').classList.add('hidden');
+          document.getElementById('lobby-waiting').classList.add('hidden');
+        });
+        actionsContainer.appendChild(rematchBtn);
+      }
+    }
+  }
+
+  /**
+   * Resets the board state, increments the tournament round counter,
+   * generates a fresh Sudoku grid, and transitions the game room to the next round.
+   *
+   * @returns {Promise<void>}
+   */
+  async function startNextRound() {
+    try {
+      const engine = window.SudokuEngine;
+      const solution = engine.generateCompleteSolution();
+      const puzzle = engine.createPuzzle(solution, gameState.difficulty);
+
+      // Increment round
+      const nextRound = gameState.bo3Round + 1;
+
+      // Create new player states but retain their names/connections
+      const p1Name = gameState.players.player1.name;
+      const p2Name = gameState.players.player2 ? gameState.players.player2.name : 'Player 2';
+      
+      const newP1 = window.GameManager.createPlayerState(p1Name, puzzle);
+      const newP2 = gameState.players.player2 ? window.GameManager.createPlayerState(p2Name, puzzle) : null;
+
+      // Update state for next round
+      gameState.puzzle = puzzle;
+      gameState.solution = solution;
+      gameState.bo3Round = nextRound;
+      gameState.status = window.GameManager.GAME_STATUS.PLAYING;
+      gameState.startTime = Date.now();
+      gameState.endTime = null;
+      gameState.winner = null;
+      gameState.scoredCells = Array(9).fill(null).map(() => Array(9).fill(false)); // fresh scoredCells
+      gameState.players.player1 = newP1;
+      if (newP2) {
+        gameState.players.player2 = newP2;
+      }
+
+      // Sync next round state to multiplayer database
+      if (!isLocalMode && window.Multiplayer.isAvailable()) {
+        await window.Multiplayer.syncMove(gameState.gameId, gameState);
+      }
+
+      // Clean up local board UI settings
+      selectedCell = null;
+      notesMode = false;
+
+      // Launch active gameplay
+      startGame();
+    } catch (e) {
+      console.error('[UI] Failed to start next round:', e);
+      Effects.showToast('Failed to generate next round. Try again!', 'error');
+    }
   }
 
   /* ────────────────────────────────────────────
