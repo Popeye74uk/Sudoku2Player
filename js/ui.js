@@ -147,89 +147,94 @@
     createBtn.disabled = true;
     createBtn.textContent = 'Generating...';
 
-    // Generate puzzle
-    const engine = window.SudokuEngine;
-    const solution = engine.generateCompleteSolution();
-    const puzzle = engine.createPuzzle(solution, difficulty);
-    const roomCode = window.GameManager.generateRoomCode();
-    const timeBonusEnabled = document.getElementById('time-bonus-toggle')?.checked ?? true;
+    try {
+      // Generate puzzle
+      const engine = window.SudokuEngine;
+      const solution = engine.generateCompleteSolution();
+      const puzzle = engine.createPuzzle(solution, difficulty);
+      const roomCode = window.GameManager.generateRoomCode();
+      const timeBonusEnabled = document.getElementById('time-bonus-toggle')?.checked ?? true;
 
-    // Create game state
-    gameState = window.GameManager.createGameState({
-      gameId: roomCode,
-      puzzle: puzzle,
-      solution: solution,
-      difficulty: difficulty,
-      player1Name: playerName,
-      timeBonusEnabled: timeBonusEnabled
-    });
-    myPlayerId = 'player1';
-    window.Multiplayer.setPlayerId(myPlayerId);
-
-    // Try to create room in Firebase
-    await window.Multiplayer.createRoom(gameState);
-
-    // Show waiting screen with room code
-    document.getElementById('lobby-main').classList.add('hidden');
-    document.getElementById('lobby-waiting').classList.remove('hidden');
-    document.getElementById('room-code-display').textContent = roomCode;
-
-    // Set up local network discovery details & QR code
-    if (window.Multiplayer.isAvailable()) {
-      setupNetworkDiscovery(roomCode);
-    }
-
-    // Listen for player 2 joining
-    if (window.Multiplayer.isAvailable()) {
-      let unsub;
-      unsub = window.Multiplayer.onPlayerJoined(roomCode, (player2Data) => {
-        if (player2Data && player2Data.name) {
-          // Player 2 joined!
-          gameState.players.player2 = {
-            name: player2Data.name,
-            score: player2Data.score || 0,
-            grid: player2Data.grid || engine.deepCopy(puzzle),
-            notes: createEmptyNotesGrid(),
-            cellsPlaced: 0,
-            correctPlacements: 0,
-            incorrectPlacements: 0,
-            completedRows: new Set(),
-            completedCols: new Set(),
-            completedBoxes: new Set(),
-            connected: true,
-            streakMultiplier: player2Data.streakMultiplier || 1,
-            lastCorrectTime: player2Data.lastCorrectTime || null
-          };
-          gameState.status = window.GameManager.GAME_STATUS.PLAYING;
-          gameState.startTime = Date.now();
-          startGame();
-          
-          if (typeof unsub === 'function') {
-            unsub();
-          } else {
-            setTimeout(() => {
-              if (typeof unsub === 'function') unsub();
-            }, 0);
-          }
-        }
+      // Create game state
+      gameState = window.GameManager.createGameState({
+        gameId: roomCode,
+        puzzle: puzzle,
+        solution: solution,
+        difficulty: difficulty,
+        player1Name: playerName,
+        timeBonusEnabled: timeBonusEnabled
       });
-      unsubscribers.push(unsub);
+      myPlayerId = 'player1';
+      window.Multiplayer.setPlayerId(myPlayerId);
+
+      // Try to create room in Firebase
+      await window.Multiplayer.createRoom(gameState);
+
+      // Show waiting screen with room code
+      document.getElementById('lobby-main').classList.add('hidden');
+      document.getElementById('lobby-waiting').classList.remove('hidden');
+      document.getElementById('room-code-display').textContent = roomCode;
+
+      // Set up local network discovery details & QR code
+      if (window.Multiplayer.isAvailable()) {
+        setupNetworkDiscovery(roomCode);
+      }
+
+      // Listen for player 2 joining
+      if (window.Multiplayer.isAvailable()) {
+        let unsub;
+        unsub = window.Multiplayer.onPlayerJoined(roomCode, (player2Data) => {
+          if (player2Data && player2Data.name) {
+            // Player 2 joined!
+            gameState.players.player2 = {
+              name: player2Data.name,
+              score: player2Data.score || 0,
+              grid: player2Data.grid || engine.deepCopy(puzzle),
+              notes: createEmptyNotesGrid(),
+              cellsPlaced: 0,
+              correctPlacements: 0,
+              incorrectPlacements: 0,
+              completedRows: new Set(),
+              completedCols: new Set(),
+              completedBoxes: new Set(),
+              connected: true,
+              streakMultiplier: player2Data.streakMultiplier || 1,
+              lastCorrectTime: player2Data.lastCorrectTime || null
+            };
+            gameState.status = window.GameManager.GAME_STATUS.PLAYING;
+            gameState.startTime = Date.now();
+            startGame();
+            
+            if (typeof unsub === 'function') {
+              unsub();
+            } else {
+              setTimeout(() => {
+                if (typeof unsub === 'function') unsub();
+              }, 0);
+            }
+          }
+        });
+        unsubscribers.push(unsub);
+      }
+
+
+      // Also support local play — start after a "Start Solo" button or wait
+      const startSoloBtn = document.getElementById('btn-start-solo');
+      if (startSoloBtn) {
+        startSoloBtn.onclick = () => {
+          // Start in local 2-player mode (same device) or single player practice
+          isLocalMode = true;
+          window.GameManager.addPlayer2(gameState, 'Player 2');
+          startGame();
+        };
+      }
+    } catch (err) {
+      console.error('[UI] Failed to create game room:', err);
+      Effects.showToast('Failed to initialize lobby. Check connection or Firebase rules.', 'error');
+    } finally {
+      createBtn.disabled = false;
+      createBtn.textContent = 'Create Game';
     }
-
-
-    // Also support local play — start after a "Start Solo" button or wait
-    const startSoloBtn = document.getElementById('btn-start-solo');
-    if (startSoloBtn) {
-      startSoloBtn.onclick = () => {
-        // Start in local 2-player mode (same device) or single player practice
-        isLocalMode = true;
-        window.GameManager.addPlayer2(gameState, 'Player 2');
-        startGame();
-      };
-    }
-
-    createBtn.disabled = false;
-    createBtn.textContent = 'Create Game';
   }
 
   /**
@@ -254,22 +259,27 @@
     joinBtn.disabled = true;
     joinBtn.textContent = 'Joining...';
 
-    if (window.Multiplayer.isAvailable()) {
-      const result = await window.Multiplayer.joinRoom(roomCode, playerName);
-      if (result) {
-        gameState = result;
-        myPlayerId = 'player2';
-        window.Multiplayer.setPlayerId(myPlayerId);
-        startGame();
+    try {
+      if (window.Multiplayer.isAvailable()) {
+        const result = await window.Multiplayer.joinRoom(roomCode, playerName);
+        if (result) {
+          gameState = result;
+          myPlayerId = 'player2';
+          window.Multiplayer.setPlayerId(myPlayerId);
+          startGame();
+        } else {
+          Effects.showToast('Room not found or already full', 'error');
+        }
       } else {
-        Effects.showToast('Room not found or already full', 'error');
+        Effects.showToast('Multiplayer not available. Create a game to play locally.', 'error');
       }
-    } else {
-      Effects.showToast('Multiplayer not available. Create a game to play locally.', 'error');
+    } catch (err) {
+      console.error('[UI] Failed to join room:', err);
+      Effects.showToast('Error joining room. Check server/database connection.', 'error');
+    } finally {
+      joinBtn.disabled = false;
+      joinBtn.textContent = 'Join Game';
     }
-
-    joinBtn.disabled = false;
-    joinBtn.textContent = 'Join Game';
   }
 
   /**

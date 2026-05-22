@@ -262,14 +262,20 @@
    */
   async function createRoom(gameState) {
     if (isFirebaseAvailable) {
-      const serialized = window.GameManager.serializeGameState(gameState);
-      const roomRef = db.ref('rooms/' + gameState.gameId);
-      await roomRef.set(serialized);
-      roomRef.onDisconnect().update({ 
-        'players/player1/connected': false 
-      });
-      console.log('[Multiplayer] Firebase Room created:', gameState.gameId);
-      return gameState.gameId;
+      try {
+        const serialized = window.GameManager.serializeGameState(gameState);
+        const roomRef = db.ref('rooms/' + gameState.gameId);
+        await roomRef.set(serialized);
+        roomRef.onDisconnect().update({ 
+          'players/player1/connected': false 
+        });
+        console.log('[Multiplayer] Firebase Room created:', gameState.gameId);
+        return gameState.gameId;
+      } catch (err) {
+        console.warn('[Multiplayer] Firebase Room creation failed. Falling back to Local Server:', err.message);
+        isFirebaseAvailable = false;
+        isLocalServerAvailable = true;
+      }
     } 
 
     if (isLocalServerAvailable) {
@@ -316,18 +322,24 @@
    */
   async function joinRoom(roomCode, playerName) {
     if (isFirebaseAvailable) {
-      const roomRef = db.ref('rooms/' + roomCode);
-      const snapshot = await roomRef.once('value');
-      if (!snapshot.exists()) return null;
-      const data = snapshot.val();
-      if (data.players.player2) return null;
+      try {
+        const roomRef = db.ref('rooms/' + roomCode);
+        const snapshot = await roomRef.once('value');
+        if (!snapshot.exists()) return null;
+        const data = snapshot.val();
+        if (data.players.player2) return null;
 
-      const gameState = window.GameManager.deserializeGameState(data);
-      window.GameManager.addPlayer2(gameState, playerName);
-      const serialized = window.GameManager.serializeGameState(gameState);
-      await roomRef.set(serialized);
-      roomRef.child('players/player2').onDisconnect().update({ connected: false });
-      return gameState;
+        const gameState = window.GameManager.deserializeGameState(data);
+        window.GameManager.addPlayer2(gameState, playerName);
+        const serialized = window.GameManager.serializeGameState(gameState);
+        await roomRef.set(serialized);
+        roomRef.child('players/player2').onDisconnect().update({ connected: false });
+        return gameState;
+      } catch (err) {
+        console.warn('[Multiplayer] Firebase Room join failed. Falling back to Local Server:', err.message);
+        isFirebaseAvailable = false;
+        isLocalServerAvailable = true;
+      }
     } 
 
     if (isLocalServerAvailable) {
@@ -369,16 +381,22 @@
    */
   async function syncMove(roomCode, playerId, playerData, scoredCells, gameStatus, winner) {
     if (isFirebaseAvailable) {
-      const updates = {};
-      updates[`rooms/${roomCode}/players/${playerId}`] = playerData;
-      updates[`rooms/${roomCode}/scoredCells`] = scoredCells;
-      updates[`rooms/${roomCode}/status`] = gameStatus;
-      if (winner) {
-        updates[`rooms/${roomCode}/winner`] = winner;
-        updates[`rooms/${roomCode}/endTime`] = Date.now();
+      try {
+        const updates = {};
+        updates[`rooms/${roomCode}/players/${playerId}`] = playerData;
+        updates[`rooms/${roomCode}/scoredCells`] = scoredCells;
+        updates[`rooms/${roomCode}/status`] = gameStatus;
+        if (winner) {
+          updates[`rooms/${roomCode}/winner`] = winner;
+          updates[`rooms/${roomCode}/endTime`] = Date.now();
+        }
+        await db.ref().update(updates);
+        return;
+      } catch (err) {
+        console.warn('[Multiplayer] Firebase syncMove failed. Falling back to Local Server:', err.message);
+        isFirebaseAvailable = false;
+        isLocalServerAvailable = true;
       }
-      await db.ref().update(updates);
-      return;
     }
 
     if (isLocalServerAvailable) {
@@ -419,13 +437,17 @@
    */
   function onOpponentUpdate(roomCode, opponentId, callback) {
     if (isFirebaseAvailable) {
-      const ref = db.ref(`rooms/${roomCode}/players/${opponentId}`);
-      const handler = ref.on('value', (snapshot) => {
-        if (snapshot.exists()) {
-          callback(snapshot.val());
-        }
-      });
-      return () => ref.off('value', handler);
+      try {
+        const ref = db.ref(`rooms/${roomCode}/players/${opponentId}`);
+        const handler = ref.on('value', (snapshot) => {
+          if (snapshot.exists()) {
+            callback(snapshot.val());
+          }
+        });
+        return () => ref.off('value', handler);
+      } catch (e) {
+        console.error('[Multiplayer] Firebase onOpponentUpdate failed:', e);
+      }
     }
     
     // In local network SSE mode, state updates cover all players inside state_update
@@ -442,21 +464,25 @@
    */
   function onGameStateUpdate(roomCode, callback) {
     if (isFirebaseAvailable) {
-      const ref = db.ref(`rooms/${roomCode}`);
-      const handler = ref.on('value', (snapshot) => {
-        if (snapshot.exists()) {
-          const data = snapshot.val();
-          callback({
-            status: data.status,
-            winner: data.winner,
-            scoredCells: data.scoredCells,
-            players: data.players,
-            startTime: data.startTime,
-            endTime: data.endTime
-          });
-        }
-      });
-      return () => ref.off('value', handler);
+      try {
+        const ref = db.ref(`rooms/${roomCode}`);
+        const handler = ref.on('value', (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.val();
+            callback({
+              status: data.status,
+              winner: data.winner,
+              scoredCells: data.scoredCells,
+              players: data.players,
+              startTime: data.startTime,
+              endTime: data.endTime
+            });
+          }
+        });
+        return () => ref.off('value', handler);
+      } catch (e) {
+        console.error('[Multiplayer] Firebase onGameStateUpdate failed:', e);
+      }
     }
 
     if (isLocalServerAvailable) {
@@ -482,13 +508,17 @@
    */
   function onPlayerJoined(roomCode, callback) {
     if (isFirebaseAvailable) {
-      const ref = db.ref(`rooms/${roomCode}/players/player2`);
-      const handler = ref.on('value', (snapshot) => {
-        if (snapshot.exists()) {
-          callback(snapshot.val());
-        }
-      });
-      return () => ref.off('value', handler);
+      try {
+        const ref = db.ref(`rooms/${roomCode}/players/player2`);
+        const handler = ref.on('value', (snapshot) => {
+          if (snapshot.exists()) {
+            callback(snapshot.val());
+          }
+        });
+        return () => ref.off('value', handler);
+      } catch (e) {
+        console.error('[Multiplayer] Firebase onPlayerJoined failed:', e);
+      }
     }
 
     if (isLocalServerAvailable) {
@@ -513,7 +543,11 @@
    */
   async function cleanupRoom(roomCode) {
     if (isFirebaseAvailable) {
-      await db.ref('rooms/' + roomCode).remove();
+      try {
+        await db.ref('rooms/' + roomCode).remove();
+      } catch (e) {
+        console.error('[Multiplayer] Firebase cleanupRoom failed:', e);
+      }
     }
   }
 
@@ -525,11 +559,15 @@
    */
   function onConnectionChange(callback) {
     if (isFirebaseAvailable) {
-      const ref = db.ref('.info/connected');
-      const handler = ref.on('value', (snapshot) => {
-        callback(snapshot.val() === true);
-      });
-      return () => ref.off('value', handler);
+      try {
+        const ref = db.ref('.info/connected');
+        const handler = ref.on('value', (snapshot) => {
+          callback(snapshot.val() === true);
+        });
+        return () => ref.off('value', handler);
+      } catch (e) {
+        console.error('[Multiplayer] Firebase onConnectionChange failed:', e);
+      }
     }
 
     if (isLocalServerAvailable) {
