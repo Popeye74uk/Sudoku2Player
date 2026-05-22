@@ -14,13 +14,13 @@
    * → Select your project → Project Settings → General → Your apps → Config
    */
   const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
-    projectId: "YOUR_PROJECT",
-    storageBucket: "YOUR_PROJECT.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyDaoLhdeZDMU9-RgMM0Z1i8etGq_yiMsyk",
+    authDomain: "sudokuduel-f6436.firebaseapp.com",
+    databaseURL: "https://sudokuduel-f6436-default-rtdb.firebaseio.com",
+    projectId: "sudokuduel-f6436",
+    storageBucket: "sudokuduel-f6436.firebasestorage.app",
+    messagingSenderId: "1037524416236",
+    appId: "1:1037524416236:web:11e1d7b00eaaa555af17c9"
   };
 
   let db = null;
