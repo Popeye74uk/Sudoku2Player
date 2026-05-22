@@ -140,7 +140,7 @@
   async function handleCreateGame() {
     const nameInput = document.getElementById('player-name-input');
     const playerName = nameInput.value.trim() || 'Player 1';
-    const difficulty = document.querySelector('.diff-option.active')?.dataset.difficulty || 'medium';
+    const difficulty = document.querySelector('.diff-option.active')?.dataset.difficulty || 'easy';
 
     // Show loading
     const createBtn = document.getElementById('btn-create');
@@ -490,13 +490,22 @@
     const fragment = document.createDocumentFragment();
     const player = gameState.players[myPlayerId];
 
-    // Count how many of each number are placed
+    // Count how many of each number are correctly solved globally (clues + scored cells)
     const counts = {};
     for (let n = 1; n <= 9; n++) counts[n] = 0;
     for (let r = 0; r < 9; r++) {
       for (let c = 0; c < 9; c++) {
-        const v = player.grid[r][c];
-        if (v !== 0) counts[v]++;
+        if (gameState.solution) {
+          const solVal = gameState.solution[r][c];
+          const isClue = gameState.puzzle[r][c] === solVal;
+          const isSolved = gameState.scoredCells && gameState.scoredCells[r][c] === true;
+          if (isClue || isSolved) {
+            counts[solVal]++;
+          }
+        } else {
+          const v = player.grid[r][c];
+          if (v !== 0) counts[v]++;
+        }
       }
     }
 
@@ -972,6 +981,7 @@
       // Update scored cells
       if (data.scoredCells) {
         gameState.scoredCells = data.scoredCells;
+        renderNumberPad(); // Trigger instant number pad redraw
       }
 
       // Check for game end
