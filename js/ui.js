@@ -988,6 +988,47 @@
         return;
       }
 
+      // Check if host started a rematch (FINISHED -> PLAYING)
+      if (gameState.status === window.GameManager.GAME_STATUS.FINISHED && data.status === window.GameManager.GAME_STATUS.PLAYING) {
+        // Transition client state to new match
+        gameState.puzzle = data.puzzle;
+        gameState.solution = data.solution;
+        gameState.bo3Enabled = data.bo3Enabled;
+        gameState.bo3Round = data.bo3Round || 1;
+        gameState.bo3Scores = data.bo3Scores || { player1: 0, player2: 0 };
+        gameState.status = window.GameManager.GAME_STATUS.PLAYING;
+        gameState.startTime = data.startTime;
+        gameState.endTime = null;
+        gameState.winner = null;
+        gameState.scoredCells = data.scoredCells || Array(9).fill(null).map(() => Array(9).fill(false));
+
+        // Reset local players
+        for (const pid of ['player1', 'player2']) {
+          const remote = data.players[pid];
+          const local = gameState.players[pid];
+          if (local && remote) {
+            local.score = remote.score || 0;
+            local.grid = remote.grid || local.grid;
+            local.cellsPlaced = remote.cellsPlaced || 0;
+            local.correctPlacements = remote.correctPlacements || 0;
+            local.incorrectPlacements = remote.incorrectPlacements || 0;
+            local.completedRows = new Set(remote.completedRows || []);
+            local.completedCols = new Set(remote.completedCols || []);
+            local.completedBoxes = new Set(remote.completedBoxes || []);
+            local.streakMultiplier = remote.streakMultiplier || 1;
+            local.lastCorrectTime = remote.lastCorrectTime || null;
+            if (pid === myPlayerId) {
+              local.notes = Array(9).fill(null).map(() => Array(9).fill(null).map(() => new Set()));
+            }
+          }
+        }
+
+        selectedCell = null;
+        notesMode = false;
+        startGame();
+        return;
+      }
+
       // Update opponent data
       if (data.players && data.players[oppId]) {
         const oppRemote = data.players[oppId];
@@ -1272,18 +1313,64 @@
         }
       } else {
         // Standard Play Again / Go back to Lobby
-        const rematchBtn = document.createElement('button');
-        rematchBtn.className = 'btn btn-primary';
-        rematchBtn.id = 'btn-rematch';
-        rematchBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> Play Again';
-        rematchBtn.addEventListener('click', () => {
-          cleanup();
-          showScreen('lobby-screen');
-          document.getElementById('lobby-main').classList.remove('hidden');
-          document.getElementById('lobby-join').classList.add('hidden');
-          document.getElementById('lobby-waiting').classList.add('hidden');
-        });
-        actionsContainer.appendChild(rematchBtn);
+        if (isLocalMode) {
+          const rematchBtn = document.createElement('button');
+          rematchBtn.className = 'btn btn-primary';
+          rematchBtn.id = 'btn-rematch';
+          rematchBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> Play Again';
+          rematchBtn.addEventListener('click', () => {
+            cleanup();
+            showScreen('lobby-screen');
+            document.getElementById('lobby-main').classList.remove('hidden');
+            document.getElementById('lobby-join').classList.add('hidden');
+            document.getElementById('lobby-waiting').classList.add('hidden');
+          });
+          actionsContainer.appendChild(rematchBtn);
+        } else {
+          // Multiplayer mode: keep room active
+          if (myPlayerId === 'player1') {
+            const rematchBtn = document.createElement('button');
+            rematchBtn.className = 'btn btn-primary';
+            rematchBtn.id = 'btn-rematch';
+            rematchBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> Rematch (Same Lobby)';
+            rematchBtn.addEventListener('click', () => startRematch());
+            actionsContainer.appendChild(rematchBtn);
+
+            const leaveBtn = document.createElement('button');
+            leaveBtn.className = 'btn btn-secondary';
+            leaveBtn.style.marginLeft = '12px';
+            leaveBtn.textContent = 'Exit to Lobby';
+            leaveBtn.addEventListener('click', () => {
+              cleanup();
+              showScreen('lobby-screen');
+              document.getElementById('lobby-main').classList.remove('hidden');
+              document.getElementById('lobby-join').classList.add('hidden');
+              document.getElementById('lobby-waiting').classList.add('hidden');
+            });
+            actionsContainer.appendChild(leaveBtn);
+          } else {
+            const waitBtn = document.createElement('button');
+            waitBtn.className = 'btn btn-primary';
+            waitBtn.disabled = true;
+            waitBtn.style.opacity = '0.7';
+            waitBtn.style.cursor = 'not-allowed';
+            waitBtn.innerHTML = `⌛ Waiting for host to start rematch...`;
+            actionsContainer.appendChild(waitBtn);
+
+            const leaveBtn = document.createElement('button');
+            leaveBtn.className = 'btn btn-secondary';
+            leaveBtn.style.marginLeft = '12px';
+            leaveBtn.textContent = 'Exit to Lobby';
+            leaveBtn.addEventListener('click', () => {
+              cleanup();
+              showScreen('lobby-screen');
+              document.getElementById('lobby-main').classList.remove('hidden');
+              document.getElementById('lobby-join').classList.add('hidden');
+              document.getElementById('lobby-waiting').classList.add('hidden');
+            });
+            actionsContainer.appendChild(leaveBtn);
+          }
+        }
       }
     }
   }
@@ -1338,6 +1425,57 @@
     } catch (e) {
       console.error('[UI] Failed to start next round:', e);
       Effects.showToast('Failed to generate next round. Try again!', 'error');
+    }
+  }
+
+  /**
+   * Resets the entire match series / single match, generates a brand new puzzle,
+   * resets tournament scores, and starts the game in the same lobby.
+   *
+   * @returns {Promise<void>}
+   */
+  async function startRematch() {
+    try {
+      const engine = window.SudokuEngine;
+      const solution = engine.generateCompleteSolution();
+      const puzzle = engine.createPuzzle(solution, gameState.difficulty);
+
+      // Create new player states but retain names/connections
+      const p1Name = gameState.players.player1.name;
+      const p2Name = gameState.players.player2 ? gameState.players.player2.name : 'Player 2';
+      
+      const newP1 = window.GameManager.createPlayerState(p1Name, puzzle);
+      const newP2 = gameState.players.player2 ? window.GameManager.createPlayerState(p2Name, puzzle) : null;
+
+      // Update state for new match
+      gameState.puzzle = puzzle;
+      gameState.solution = solution;
+      gameState.bo3Round = 1;
+      gameState.bo3Scores = { player1: 0, player2: 0 };
+      gameState.status = window.GameManager.GAME_STATUS.PLAYING;
+      gameState.startTime = Date.now();
+      gameState.endTime = null;
+      gameState.winner = null;
+      gameState.scoredCells = Array(9).fill(null).map(() => Array(9).fill(false));
+      gameState.players.player1 = newP1;
+      if (newP2) {
+        gameState.players.player2 = newP2;
+      }
+
+      // Sync new game state to multiplayer database
+      if (!isLocalMode && window.Multiplayer.isAvailable()) {
+        await window.Multiplayer.syncMove(gameState.gameId, gameState);
+      }
+
+      // Clean up local board UI settings
+      selectedCell = null;
+      notesMode = false;
+
+      // Launch active gameplay
+      startGame();
+    } catch (e) {
+      console.error('[UI] Failed to start rematch:', e);
+      Effects.showToast('Failed to start rematch. Try again!', 'error');
     }
   }
 
