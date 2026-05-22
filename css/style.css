@@ -21,15 +21,15 @@
   --glass:          hsla(228, 30%, 18%, 0.6);
   --glass-border:   hsla(228, 40%, 30%, 0.3);
 
-  /* ── Primary Accent (Vivid Purple) ── */
-  --primary:        hsl(258, 90%, 66%);
-  --primary-glow:   hsla(258, 90%, 66%, 0.3);
-  --primary-soft:   hsla(258, 90%, 66%, 0.12);
+  /* ── Primary Accent (Electric Cyan) ── */
+  --primary:        hsl(190, 90%, 50%);
+  --primary-glow:   hsla(190, 90%, 50%, 0.3);
+  --primary-soft:   hsla(190, 90%, 50%, 0.12);
 
-  /* ── Secondary Accent (Electric Cyan) ── */
-  --secondary:      hsl(190, 90%, 50%);
-  --secondary-glow: hsla(190, 90%, 50%, 0.3);
-  --secondary-soft: hsla(190, 90%, 50%, 0.12);
+  /* ── Secondary Accent (Vivid Purple) ── */
+  --secondary:      hsl(258, 90%, 66%);
+  --secondary-glow: hsla(258, 90%, 66%, 0.3);
+  --secondary-soft: hsla(258, 90%, 66%, 0.12);
 
   /* ── Tertiary Accent (Hot Pink / Magenta) ── */
   --accent:         hsl(340, 90%, 60%);
@@ -89,8 +89,8 @@
   --shadow-md:  0 4px  16px hsla(228, 30%, 4%, 0.5);
   --shadow-lg:  0 8px  32px hsla(228, 30%, 4%, 0.6);
   --shadow-xl:  0 16px 64px hsla(228, 30%, 4%, 0.7);
-  --shadow-glow-primary:   0 0 24px var(--primary-glow), 0 0 48px hsla(258, 90%, 66%, 0.12);
-  --shadow-glow-secondary: 0 0 24px var(--secondary-glow), 0 0 48px hsla(190, 90%, 50%, 0.12);
+  --shadow-glow-primary:   0 0 24px var(--primary-glow), 0 0 48px hsla(190, 90%, 50%, 0.12);
+  --shadow-glow-secondary: 0 0 24px var(--secondary-glow), 0 0 48px hsla(258, 90%, 66%, 0.12);
   --shadow-glow-success:   0 0 20px var(--success-glow);
   --shadow-glow-error:     0 0 20px var(--error-glow);
 }
@@ -124,8 +124,8 @@ body {
 
   /* Subtle radial gradient backdrop for depth */
   background-image:
-    radial-gradient(ellipse 80% 60% at 50% 0%,   hsla(258, 60%, 20%, 0.15), transparent),
-    radial-gradient(ellipse 60% 50% at 80% 100%,  hsla(190, 60%, 15%, 0.10), transparent),
+    radial-gradient(ellipse 80% 60% at 50% 0%,   hsla(190, 60%, 15%, 0.15), transparent),
+    radial-gradient(ellipse 60% 50% at 80% 100%,  hsla(258, 60%, 20%, 0.10), transparent),
     radial-gradient(ellipse 50% 40% at 10% 80%,   hsla(340, 50%, 15%, 0.08), transparent);
   background-attachment: fixed;
 }
@@ -241,7 +241,7 @@ body {
   height: 100%;
   background: radial-gradient(
     ellipse at center,
-    hsla(258, 80%, 50%, 0.06) 0%,
+    hsla(190, 80%, 50%, 0.06) 0%,
     transparent 70%
   );
   pointer-events: none;
@@ -533,12 +533,12 @@ body {
   background: var(--primary-soft);
   color: var(--primary);
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px hsla(258, 90%, 66%, 0.1);
+  box-shadow: 0 4px 16px hsla(190, 90%, 50%, 0.1);
 }
 
 .btn-secondary:active {
   transform: translateY(0);
-  background: hsla(258, 90%, 66%, 0.15);
+  background: hsla(190, 90%, 50%, 0.15);
 }
 
 /* ── Join Button (Cyan) ── */
@@ -614,9 +614,9 @@ body {
   overflow: hidden;
 }
 
-/* Self player card — purple accent */
+/* Self player card — cyan accent */
 .player-card.self {
-  border-color: hsla(258, 60%, 50%, 0.3);
+  border-color: hsla(190, 60%, 40%, 0.3);
 }
 
 .player-card.self::before {
@@ -626,13 +626,13 @@ body {
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--primary), hsl(280, 80%, 60%));
+  background: linear-gradient(90deg, var(--primary), hsl(200, 85%, 55%));
   border-radius: 3px 3px 0 0;
 }
 
-/* Opponent player card — cyan accent */
+/* Opponent player card — purple accent */
 .player-card.opponent {
-  border-color: hsla(190, 60%, 40%, 0.3);
+  border-color: hsla(258, 60%, 50%, 0.3);
 }
 
 .player-card.opponent::before {
@@ -642,7 +642,7 @@ body {
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--secondary), hsl(200, 85%, 55%));
+  background: linear-gradient(90deg, var(--secondary), hsl(280, 80%, 60%));
   border-radius: 3px 3px 0 0;
 }
 
@@ -2466,11 +2466,11 @@ body {
 }
 
 .score-card.self {
-  border-color: hsla(258, 60%, 50%, 0.3);
+  border-color: hsla(190, 60%, 40%, 0.3);
 }
 
 .score-card.opponent {
-  border-color: hsla(190, 60%, 40%, 0.3);
+  border-color: hsla(258, 60%, 50%, 0.3);
 }
 
 .score-card-name {
@@ -2737,8 +2737,8 @@ body {
 }
 
 .glass-card:hover {
-  border-color: hsla(258, 50%, 60%, 0.25);
-  box-shadow: var(--shadow-xl), 0 0 40px hsla(258, 90%, 66%, 0.04);
+  border-color: hsla(190, 50%, 50%, 0.25);
+  box-shadow: var(--shadow-xl), 0 0 40px hsla(190, 90%, 50%, 0.04);
 }
 
 /* ── Sleek Input Fields ── */
@@ -2758,8 +2758,8 @@ body {
 }
 
 .sudoku-board:hover {
-  border-color: hsla(258, 50%, 50%, 0.5);
-  box-shadow: var(--shadow-xl), 0 0 30px rgba(138, 75, 243, 0.15);
+  border-color: hsla(190, 50%, 40%, 0.5);
+  box-shadow: var(--shadow-xl), 0 0 30px rgba(0, 212, 255, 0.15);
 }
 
 /* ── Sudoku Cell Hover Elevation ── */
@@ -2866,18 +2866,18 @@ body {
   z-index: 10;
 }
 
-/* Player 1 Active Turn Glow (Purple) */
+/* Player 1 Active Turn Glow (Cyan) */
 .player-card.self.active-turn {
   border-color: var(--primary) !important;
   box-shadow: 0 0 20px var(--primary-glow), var(--shadow-lg);
-  background: linear-gradient(135deg, hsla(258, 90%, 66%, 0.15), var(--glass));
+  background: linear-gradient(135deg, hsla(190, 90%, 50%, 0.15), var(--glass));
 }
 
-/* Player 2 Active Turn Glow (Cyan) */
+/* Player 2 Active Turn Glow (Purple) */
 .player-card.opponent.active-turn {
   border-color: var(--secondary) !important;
   box-shadow: 0 0 20px var(--secondary-glow), var(--shadow-lg);
-  background: linear-gradient(135deg, hsla(190, 90%, 50%, 0.15), var(--glass));
+  background: linear-gradient(135deg, hsla(258, 90%, 66%, 0.15), var(--glass));
 }
 
 /* ── Custom Opponent-Solved Accent Dots ── */
@@ -2896,7 +2896,7 @@ body {
 /* Premium Opponent-Solved Cells Styling */
 .sudoku-cell.opponent-filled.p1-filled {
   background: var(--primary-soft) !important;
-  box-shadow: inset 0 0 0 1.5px hsla(258, 90%, 66%, 0.3) !important;
+  box-shadow: inset 0 0 0 1.5px hsla(190, 90%, 50%, 0.3) !important;
 }
 .sudoku-cell.opponent-filled.p1-filled .cell-value.opponent-entered {
   color: var(--primary) !important;
@@ -2906,7 +2906,7 @@ body {
 
 .sudoku-cell.opponent-filled.p2-filled {
   background: var(--secondary-soft) !important;
-  box-shadow: inset 0 0 0 1.5px hsla(190, 90%, 50%, 0.3) !important;
+  box-shadow: inset 0 0 0 1.5px hsla(258, 90%, 66%, 0.3) !important;
 }
 .sudoku-cell.opponent-filled.p2-filled .cell-value.opponent-entered {
   color: var(--secondary) !important;
